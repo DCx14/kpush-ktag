@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# Vérifie si au moins un argument est fourni
+if [ "$#" -lt 1 ]; then
+    echo "Usage: $0 image:tag1:tag2:...:tagN"
+    exit 1
+fi
+
+# Couleurs pour l'arborescence
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+# Tableaux pour enregistrer les images poussées avec leurs tags
+declare -A pushed_images
+declare -A image_repositories
+
+# Fonction pour enregistrer les images poussées
+record_pushed_image() {
+    local image="$1"
+    local tag="$2"
+    if [ -z "${pushed_images[$image]}" ]; then
+        pushed_images[$image]="$tag"
+    else
+        pushed_images[$image]="${pushed_images[$image]} $tag"
+    fi
+}
+
+# Fonction pour enregistrer le nom du référentiel
+record_repository() {
+    local image="$1"
+    local repository="$2"
+    image_repositories[$image]="$repository"
+}
+
+# Fonction pour extraire le nom du référentiel à partir de l'image Docker
+extract_repository() {
+    local image="$1"
+    echo "${image%%/*}"  # Récupère tout avant le premier "/"
+}
+
+# Définit la fonction pour afficher un message avec une couleur spécifiée
+print_color() {
+    local color="$1"
+    shift
+    echo -e "${color}$@${NC}"
+}
+
+# Boucle sur chaque argument
+for arg in "$@"; do
+    # Sépare l'argument en une partie pour l'image et des parties pour les tags
+    IFS=':' read -r -a parts <<< "$arg"
+    
+    # La première partie est l'image
+    image="${parts[0]}"
+    
+    # Les parties suivantes sont les tags
+    if [ "${#parts[@]}" -lt 2 ]; then
+        echo "Invalid argument format: $arg. Expected format: image:tag1:tag2:...:tagN"
+        continue
+    fi
+    
+    repository=$(extract_repository "$image")
+    record_repository "$image" "$repository"
+    
+    # Boucle sur chaque tag et effectue le docker push
+    for ((i = 1; i < ${#parts[@]}; i++)); do
+        tag="${parts[i]}"
+        echo "Pushing $image:$tag..."
+        docker push "$image:$tag"
+        
+        # Vérifie si le push a réussi
+        if [ $? -ne 0 ]; then
+            print_color "${GREEN}Failed to push $image:$tag${NC}"
+            exit 1
+        else
+            print_color "${BLUE}Successfully pushed $image:$tag${NC}"
+            # Enregistre l'image et le tag poussés
+            record_pushed_image "$image" "$tag"
+        fi
+    done
+done
+
+# Affiche l'arborescence des images poussées
+print_color "${YELLOW}---------------------------------------------------------------------------${NC}"
+print_color "${BLUE}All images pushed:${NC}"
+for image in "${!pushed_images[@]}"; do
+    repository="${image_repositories[$image]}"
+    print_color "${BLUE}  | Image: $image${NC}"
+    print_color "${BLUE}  | | Repository: $repository${NC}"
+    tags="${pushed_images[$image]}"
+    for tag in $tags; do
+        print_color "${GREEN}    | |-- $tag${NC}"
+    done
+    print_color "${BLUE}  | -- ${NC}"
+done
+print_color "${YELLOW}---------------------------------------------------------------------------${NC}"
+
+echo "All images pushed successfully."
+

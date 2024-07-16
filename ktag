@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# Fonction d'affichage de l'aide
+print_usage() {
+    echo "Usage: ./kpush <image_name> <target_repository>:<tag1>:<tag2>:<tag3>:..."
+    echo "Example: ./kpush frankenzob registry.septeo.fr/septeo-portail/portal-franken:v1.0:latest"
+}
+
+# Vérification des arguments
+if [ $# -lt 2 ]; then
+    echo "Erreur : Nombre incorrect d'arguments."
+    print_usage
+    exit 1
+fi
+
+# Extraction des arguments
+IMAGE_NAME="$1"
+TARGET_REFERENCE="$2"
+
+# Vérification si l'image existe
+if ! docker image inspect "$IMAGE_NAME" &> /dev/null; then
+    echo "Erreur : L'image '$IMAGE_NAME' n'existe pas."
+    exit 1
+fi
+
+# Diviser la référence cible en parties utilisant ':' comme séparateur
+IFS=':' read -ra TAGS <<< "$TARGET_REFERENCE"
+
+# Le premier élément est le repository, le reste sont les tags
+TARGET_REPOSITORY="${TAGS[0]}"
+unset TAGS[0]  # Supprimer le premier élément (repository)
+
+# Fonction pour afficher une arborescence en couleur avec une nomenclature
+print_tree() {
+    local indent="$1"
+    local message="$2"
+    local color="$3"
+    local prefix="$4"
+
+    # Couleurs ANSI
+    local RED='\033[1;31m'
+    local GREEN='\033[1;32m'
+    local YELLOW='\033[1;33m'
+    local BLUE='\033[1;34m'
+    local NC='\033[0m'  # No Color
+
+    case "$color" in
+        "red")    COLOR="$RED" ;;
+        "green")  COLOR="$GREEN" ;;
+        "yellow") COLOR="$YELLOW" ;;
+        "blue")   COLOR="$BLUE" ;;
+        *)        COLOR="$NC" ;;
+    esac
+
+    echo -e "${indent}${prefix} ${COLOR}${message}${NC}"
+}
+
+# Affichage de l'arborescence avec les résultats
+print_tree "" "---------------------------------------------------------------------------" "blue"
+print_tree "" "| Image: ${IMAGE_NAME}" "blue" "+"
+print_tree "  " "| Repository: ${TARGET_REPOSITORY}" "blue" "|"
+
+# Tagging de l'image avec chaque tag spécifié et affichage des résultats dans l'arborescence
+for TAG in "${TAGS[@]}"; do
+    TARGET_TAG="$TARGET_REPOSITORY:$TAG"
+    docker tag "$IMAGE_NAME" "$TARGET_TAG"
+    if [ $? -eq 0 ]; then
+        print_tree "    " "|-- ${TAG}" "green" "|"
+    else
+        print_tree "    " "|-- ${TAG}" "red" "|"
+        exit 1
+    fi
+done
+
+print_tree "" "---------------------------------------------------------------------------" "blue"
+
+exit 0
