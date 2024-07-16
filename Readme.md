@@ -38,7 +38,7 @@ root@H0st42:/# ktag  frankenphp  registry.private.fr/private-image/image-franken
 
 
 ```shell
- kpush registry.private.fr/private-image/image-franken:v1.0:latest
+ kpush registry.private.fr/private-image/image-franken:v1.0:latest:stable
 ```
 
 Output :
