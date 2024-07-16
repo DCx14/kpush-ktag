@@ -20,6 +20,8 @@ cp ktag /usr/local/bin && cp kpush /usr/local/bin
 
 ## Utilisation
 
+### ktag
+
 ```shell
  ktag  frankenphp registry.private.fr/private-image/image-franken:v1.0:latest
 ```
@@ -36,6 +38,7 @@ root@H0st42:/# ktag  frankenphp  registry.private.fr/private-image/image-franken
  ---------------------------------------------------------------------------
 ```
 
+### Kpush
 
 ```shell
  kpush registry.private.fr/private-image/image-franken:v1.0:latest:stable
